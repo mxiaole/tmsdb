@@ -26,12 +26,16 @@ type ReportData struct {
 	Data   []db.Sample `json:"data"`   // 样本值
 }
 
+var DB = db.New()
+
 func send(w http.ResponseWriter, r *http.Request) {
 	d := ReportData{}
 	err := json.NewDecoder(r.Body).Decode(&d)
 	if err != nil {
 		fmt.Println("unmarshal request error: ", err)
 	}
+
+	DB.Save(d.Name, d.Labels, d.Data)
 }
 
 func get(w http.ResponseWriter, r *http.Request) {
@@ -42,6 +46,7 @@ func get(w http.ResponseWriter, r *http.Request) {
 		fmt.Println("unmarshal request error: ", err)
 	}
 
-	// json.NewEncoder(w).Encode(respData)
+	resp := DB.Query(d.Name, d.Labels)
 
+	json.NewEncoder(w).Encode(resp)
 }
