@@ -1,5 +1,7 @@
 package db
 
+import "sync"
+
 // Metrics 时序数据
 type Metrics struct {
 	MetricName string   `json:"metric_name"`
@@ -24,11 +26,13 @@ type Sample struct {
 
 type DB struct {
 	hashMap map[string][]Sample
+	lock    *sync.RWMutex
 }
 
 func New() *DB {
 	return &DB{
 		hashMap: make(map[string][]Sample, 0),
+		lock:    &sync.RWMutex{},
 	}
 }
 
@@ -42,11 +46,13 @@ func (db *DB) Save(metricName string, labels []Label, values []Sample) {
 	for _, l := range labels {
 		// 如果不存在就创建
 		k := name + l.K + l.V
+		db.lock.Lock()
 		if _, ok := db.hashMap[name+l.K+l.V]; !ok {
 			db.hashMap[k] = sample
 		} else {
 			db.hashMap[k] = append(db.hashMap[k], sample...)
 		}
+		db.lock.Unlock()
 	}
 }
 
@@ -60,9 +66,11 @@ func (db *DB) Query(metricName string, labels []Label) []Sample {
 	// 思路: 倒排索引
 	for _, l := range labels {
 		key := name + l.K + l.V
+		db.lock.RLock()
 		if v, ok := db.hashMap[key]; ok {
 			respData = append(respData, v...)
 		}
+		db.lock.RUnlock()
 	}
 
 	return respData
